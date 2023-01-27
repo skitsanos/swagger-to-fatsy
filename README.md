@@ -20,10 +20,18 @@ For example, if the Swagger file defines a GET route for `/users`, the script wi
 
 ## Usage
 
-You can run the script from the command line using the following command:
+First thing first, once you cloned the repo, do the linking:
 
 ```shell
-node src/index.js -s <source-file> -d <destination-folder> -t <file-type>
+npm link
+```
+
+If you got an `EACCES` error, re-run it with `sudo`.
+
+Now you can run the script from the command line using the following command:
+
+```shell
+swagger-to-fatsy -s <source-file> -d <destination-folder> -t <file-type>
 ```
 
 - `scriptName.js` is the name of the script you are running.
@@ -34,7 +42,7 @@ node src/index.js -s <source-file> -d <destination-folder> -t <file-type>
 For example:
 
 ```shell
-node src/index.js -s swagger.yml -d routes -t js
+swagger-to-fatsy -s swagger.yml -d routes -t js
 ```
 
-This command will parse the Swagger file `swagger.yml` and create the routes in the `routes` folder with javascript file type.
+This command will parse the Swagger file `swagger.yml` and create the routes in the `routes` folder with a javascript file type.
