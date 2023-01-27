@@ -1,0 +1,54 @@
+swagger: "2.0"
+info:
+  version: "1.0.0"
+  title: My API
+  description: A simple example of a Swagger file with GET, POST, and DELETE methods.
+
+paths:
+  /users:
+    get:
+      summary: Retrieve a list of users
+      operationId: getUsers
+      responses:
+        200:
+          description: A list of users
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/User"
+    post:
+      summary: Create a new user
+      operationId: createUser
+      parameters:
+        - name: user
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        201:
+          description: The created user
+          schema:
+            $ref: "#/definitions/User"
+    delete:
+      summary: Delete a user
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: integer
+      responses:
+        204:
+          description: The user was deleted
+
+definitions:
+  User:
+    type: object
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      age:
+        type: integer

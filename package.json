@@ -1,0 +1,13 @@
+{
+  "name": "swagger-to-fatsy",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:skitsanos/swagger-to-fatsy.git",
+  "author": "skitsanos <info@skitsanos.com>",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^10.0.0",
+    "fs-extra": "^11.1.0",
+    "yaml": "^2.2.1"
+  }
+}
