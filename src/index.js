@@ -2,9 +2,9 @@
 const {program} = require('commander');
 const {version} = require('../package.json');
 const {resolve, join: pathJoin} = require('path');
-const {existsSync, readFileSync} = require('fs');
+const {existsSync} = require('fs');
 const {ensureDirSync, writeFileSync} = require('fs-extra');
-const {parse: parseYaml} = require('yaml');
+const swaggerParser = require('@apidevtools/swagger-parser');
 
 const fileTemplate = (method, path, type = 'ts') => {
 
@@ -46,36 +46,50 @@ if (!existsSync(destination)) {
     ensureDirSync(pathToCreate);
 }
 
-const yamlContent = readFileSync(source, 'utf8');
-const doc = parseYaml(yamlContent);
+swaggerParser.validate(source, (err, api) => {
+    if (err) {
+        process.stdout.write(`\x1B[31m ${err.message}\x1B[0m\n`);
+        process.exit(1);
 
-const {paths} = doc;
-
-for (const entry of Object.entries(paths)) {
-    const [endpoint, methods] = entry;
-
-    let endpointPath = endpoint;
-
-    // replace all {param} with $param
-    const params = endpoint.match(/{\w+}/g);
-    if (params) {
-        params.forEach(param => {
-            endpointPath = endpointPath.replace(param, `$${param.slice(1, -1)}`);
-        });
+        process.stdout.write(`\x1B[36m ${api.info.title} \x1B[34m${api.info.version}\x1B[0m\n`);
     }
 
-    const fsPath = pathJoin(resolve(destination), endpointPath);
-    ensureDirSync(fsPath);
-
-    const methodsFound = Object.keys(methods);
-    for (const method of methodsFound) {
-        const fileName = `${method}.${type}`;
-        process.stdout.write(`\x1B[36m ${method.toUpperCase()} \x1B[34m${endpointPath}\x1B[0m\n`);
-
-        if (!existsSync(pathJoin(fsPath, fileName))) {
-            writeFileSync(pathJoin(fsPath, fileName), fileTemplate(method, endpointPath, type));
+    swaggerParser.parse(source, (errParse, doc) => {
+        if (errParse) {
+            process.stdout.write(`\x1B[31m ${err.message}\x1B[0m\n`);
+            process.exit(1);
         }
-    }
-}
 
-process.stdout.write(`\x1B[32mParsing complete\x1B[0m`);
+        const {paths} = doc;
+
+        for (const entry of Object.entries(paths)) {
+            const [endpoint, methods] = entry;
+
+            let endpointPath = endpoint;
+
+            // replace all {param} with $param
+            const params = endpoint.match(/{\w+}/g);
+            if (params) {
+                params.forEach(param => {
+                    endpointPath = endpointPath.replace(param, `$${param.slice(1, -1)}`);
+                });
+            }
+
+            const fsPath = pathJoin(resolve(destination), endpointPath);
+            ensureDirSync(fsPath);
+
+            const methodsFound = Object.keys(methods).filter(method => !['parameters', 'summary', 'description'].includes(method));
+            for (const method of methodsFound) {
+                const fileName = `${method}.${type}`;
+                process.stdout.write(`\x1B[36m ${method.toUpperCase()} \x1B[34m${endpointPath}\x1B[0m\n`);
+
+                if (!existsSync(pathJoin(fsPath, fileName))) {
+                    writeFileSync(pathJoin(fsPath, fileName), fileTemplate(method, endpointPath, type));
+                }
+            }
+        }
+
+        process.stdout.write(`\x1B[32mParsing complete\x1B[0m`);
+    });
+
+});
