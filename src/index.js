@@ -10,13 +10,16 @@ const fileTemplate = ({method, path, parameters, fileType = 'ts'}) =>
 {
     const privateBlock = [];
     const schemaBlock = [];
+    const nonAuthorizationHeadersBlock = [];
     if (parameters)
     {
         const headerParams = parameters.filter(el => el.in === 'header');
 
         // Check if it requires authorization
-        if (headerParams.findIndex(el => el.name === 'Authorization') > -1)
+        const authHeaderIndex = headerParams.findIndex(el => el.name === 'Authorization');
+        if (authHeaderIndex > -1)
         {
+            privateBlock.push(`    // ${headerParams[authHeaderIndex]?.description}\n`);
             privateBlock.push('    private: true,\n');
         }
 
