@@ -6,11 +6,10 @@ const {existsSync} = require('fs');
 const {ensureDirSync, writeFileSync} = require('fs-extra');
 const OpenAPIParser = require('@readme/openapi-parser');
 
-const fileTemplate = ({method, path, parameters, fileType = 'ts'}) =>
+const fileTemplate = ({method, path, parameters, requestBody, fileType = 'ts', components}) =>
 {
     const privateBlock = [];
     const schemaBlock = [];
-    const nonAuthorizationHeadersBlock = [];
     if (parameters)
     {
         const headerParams = parameters.filter(el => el.in === 'header');
@@ -23,9 +22,58 @@ const fileTemplate = ({method, path, parameters, fileType = 'ts'}) =>
             privateBlock.push('    private: true,\n');
         }
 
-        schemaBlock.push('    schema: {\n');
-        console.log(headerParams);
+        // collecting Header params
+        const nonAuthorzationHeaderParams = headerParams.filter(el => el.name !== 'Authorization');
+        const headersSchemaBlock = [];
+        if (nonAuthorzationHeaderParams.length > 0)
+        {
+            headersSchemaBlock.push('        headers: {\n');
+            headersSchemaBlock.push('          type: \'object\',\n');
+            headersSchemaBlock.push('          properties: {\n');
 
+            for (const headerParam of nonAuthorzationHeaderParams)
+            {
+                headersSchemaBlock.push(`            \'${headerParam.name}\': {\n`);
+                headersSchemaBlock.push(`              type: '${headerParam.schema.type}',\n`);
+                headersSchemaBlock.push(`              description: ${JSON.stringify(headerParam.description)},\n`);
+                headersSchemaBlock.push('            },\n');
+            }
+
+            headersSchemaBlock.push('          },\n');
+            const requiredFields = nonAuthorzationHeaderParams.filter(el => el.required).map(el => JSON.stringify(el.name));
+
+            if (requiredFields.length > 0)
+            {
+                headersSchemaBlock.push(`          required: [${requiredFields.join(',')}]\n`);
+            }
+            headersSchemaBlock.push('        },\n');
+        }
+
+        schemaBlock.push('    schema: {\n');
+        schemaBlock.push(...headersSchemaBlock);
+
+        // check the body
+        const schemaBody = [];
+        if (requestBody && requestBody.required)
+        {
+            const schema = Object.values(requestBody.content)[0].schema;
+            if (Object.keys(schema).includes('$ref'))
+            {
+                const refToSchema = schema.$ref.split('/').pop();
+                // get schema from components
+                const schemaObject = components.schemas[refToSchema];
+                if (typeof schemaObject === 'object')
+                {
+                    schemaBody.push(`            body: ${JSON.stringify(schemaObject, 4)},\n`);
+                }
+            }
+            else
+            {
+                schemaBody.push(`            body: ${JSON.stringify(schema, 4)},\n`);
+            }
+        }
+
+        schemaBlock.push(...schemaBody);
         schemaBlock.push('    },\n');
     }
 
@@ -41,7 +89,7 @@ const fileTemplate = ({method, path, parameters, fileType = 'ts'}) =>
         ...privateBlock,
         ...schemaBlock,
         '    handler: (req, res) => {\n',
-        `        res.send('Hello ${path}');\n`,
+        `        res.send({"result": {}});\n`,
         '    }\n',
         '};\n\n',
         fileType === 'ts' ?
@@ -94,11 +142,11 @@ OpenAPIParser.validate(source, {
     {
         if (errParse)
         {
-            process.stdout.write(`\x1B[31m ${err.message}\x1B[0m\n`);
+            process.stdout.write(`\x1B[31m ${errParse.message}\x1B[0m\n`);
             process.exit(1);
         }
 
-        const {paths} = doc;
+        const {paths, components} = doc;
 
         for (const entry of Object.entries(paths))
         {
@@ -123,15 +171,19 @@ OpenAPIParser.validate(source, {
             {
                 const fileName = `${method}.${type}`;
                 process.stdout.write(`\x1B[36m ${method.toUpperCase()} \x1B[34m${endpointPath}\x1B[0m\n`);
-                const {parameters} = methods[method];
+                const {parameters, requestBody} = methods[method];
 
-                //if (!existsSync(pathJoin(fsPath, fileName)))
-                writeFileSync(pathJoin(fsPath, fileName), fileTemplate({
-                    path: endpointPath,
-                    method,
-                    parameters,
-                    type
-                }));
+                if (!existsSync(pathJoin(fsPath, fileName)))
+                {
+                    writeFileSync(pathJoin(fsPath, fileName), fileTemplate({
+                        path: endpointPath,
+                        method,
+                        parameters,
+                        requestBody,
+                        type,
+                        components
+                    }));
+                }
             }
         }
 
